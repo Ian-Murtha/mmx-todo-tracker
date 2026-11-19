@@ -1,5 +1,5 @@
 import type { Entry, FlatEntry } from './types'
-import { computeDropZone, type DropZone } from './tree'
+import { computeDropZone, compareSiblings, type DropZone } from './tree'
 
 export { computeDropZone, type DropZone }
 
@@ -12,7 +12,7 @@ export function buildChildrenMap(entries: Entry[]): Map<string | null, Entry[]> 
     map.set(key, list)
   }
   for (const list of map.values()) {
-    list.sort((a, b) => a.position - b.position)
+    list.sort(compareSiblings)
   }
   return map
 }
@@ -130,7 +130,7 @@ export function moveEntry(
 
   const destSiblings = entries
     .filter((e) => e.parent_entry_id === newParentId && e.id !== draggedId)
-    .sort((a, b) => a.position - b.position)
+    .sort(compareSiblings)
 
   let insertIndex: number
   if (zone === 'nest') {
@@ -156,7 +156,7 @@ export function moveEntry(
   if (oldParentId !== newParentId) {
     const oldSiblings = entries
       .filter((e) => e.parent_entry_id === oldParentId && e.id !== draggedId)
-      .sort((a, b) => a.position - b.position)
+      .sort(compareSiblings)
     oldSiblings.forEach((sibling, index) => {
       const entry = byId.get(sibling.id)!
       if (entry.position !== index) {

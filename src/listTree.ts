@@ -1,5 +1,5 @@
 import type { TodoList, FlatList } from './types'
-import { computeDropZone, type DropZone } from './tree'
+import { computeDropZone, compareSiblings, type DropZone } from './tree'
 
 export { computeDropZone, type DropZone }
 
@@ -12,7 +12,7 @@ export function buildChildrenMap(lists: TodoList[]): Map<string | null, TodoList
     map.set(key, arr)
   }
   for (const arr of map.values()) {
-    arr.sort((a, b) => a.position - b.position)
+    arr.sort(compareSiblings)
   }
   return map
 }
@@ -82,7 +82,7 @@ export function moveList(
 
   const destSiblings = lists
     .filter((l) => l.parent_list_id === newParentId && l.id !== draggedId)
-    .sort((a, b) => a.position - b.position)
+    .sort(compareSiblings)
 
   let insertIndex: number
   if (zone === 'nest') {
@@ -108,7 +108,7 @@ export function moveList(
   if (oldParentId !== newParentId) {
     const oldSiblings = lists
       .filter((l) => l.parent_list_id === oldParentId && l.id !== draggedId)
-      .sort((a, b) => a.position - b.position)
+      .sort(compareSiblings)
     oldSiblings.forEach((sibling, index) => {
       const list = byId.get(sibling.id)!
       if (list.position !== index) {
