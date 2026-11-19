@@ -43,10 +43,11 @@ body.embed-mode {
 .new-list-row input,
 .new-entry-row input {
   flex: 1;
+  min-width: 0; /* lets the box shrink so the + Add button stays inside the 260px sidebar */
   padding: 8px 10px;
   border: 1px solid #ddd;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 button {
@@ -133,6 +134,7 @@ button:hover {
 
 .main-content {
   flex: 1;
+  min-width: 0;
   padding: 30px 40px;
 }
 
@@ -186,6 +188,7 @@ button:hover {
   color: #aaa;
   font-size: 16px;
   user-select: none;
+  touch-action: none; /* a finger drag on the handle moves the entry instead of scrolling the page */
 }
 
 .chevron-btn {
@@ -208,9 +211,10 @@ button:hover {
 
 .entry-text {
   flex: 1;
+  min-width: 0;
   border: none;
   outline: none;
-  font-size: 15px;
+  font-size: 16px; /* 16px stops iOS Safari zooming the page on focus */
   background: transparent;
 }
 
@@ -255,17 +259,27 @@ button:hover {
   padding: 40px;
 }
 
-.error-banner {
+.banners {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
+  z-index: 10;
+}
+
+.error-banner {
   background: #ffe0e0;
   color: #a00;
   padding: 10px;
   text-align: center;
   cursor: pointer;
-  z-index: 10;
+}
+
+.signed-out-banner {
+  background: #fff3cd;
+  color: #7a5b00;
+  padding: 10px;
+  text-align: center;
 }
 
 .list-view-header {
@@ -320,15 +334,15 @@ button:hover {
   padding: 6px 8px;
   border: 1px solid #ddd;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .n-days-input {
-  width: 56px;
+  width: 64px;
   padding: 6px 8px;
   border: 1px solid #ddd;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .history-panel {
@@ -382,4 +396,61 @@ button:hover {
 
 .history-grid .history-missed {
   color: #ccc;
+}
+
+/* Phone: lists panel on top (limited height, scrolls), the selected list below, no sideways scrolling. */
+@media (max-width: 600px) {
+  .app {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    max-height: 40vh;
+    overflow-y: auto;
+    border-right: none;
+    border-bottom: 1px solid #e2e2e6;
+    padding: 12px;
+  }
+
+  .main-content {
+    padding: 16px 12px;
+  }
+
+  .list-view-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .entry-row {
+    gap: 4px;
+    padding: 6px 8px;
+  }
+}
+
+/* Bigger tap targets (about 40px) on phones and touch screens. */
+@media (max-width: 600px), (pointer: coarse) {
+  .drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    min-height: 40px;
+  }
+
+  .chevron-btn,
+  .chevron-spacer {
+    width: 36px;
+  }
+
+  .chevron-btn {
+    min-height: 40px;
+    font-size: 16px;
+  }
+
+  .add-child-btn,
+  .delete-btn {
+    min-width: 40px;
+    min-height: 40px;
+  }
 }

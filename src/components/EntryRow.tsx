@@ -1,11 +1,11 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FlatEntry } from '../types'
 
 interface Props {
   entry: FlatEntry
   onToggle: (id: string, done: boolean) => void
-  onEdit: (id: string, content: string) => void
+  onEdit: (id: string, content: string) => Promise<boolean>
   onDelete: (id: string) => void
   onToggleCollapsed: (id: string, collapsed: boolean) => void
   onAddChild: (parentId: string) => void
@@ -24,6 +24,11 @@ export default function EntryRow({
   isDropTarget,
 }: Props) {
   const [text, setText] = useState(entry.content)
+
+  // Follow the saved text (for example after a reload or a change from another device).
+  useEffect(() => {
+    setText(entry.content)
+  }, [entry.content])
 
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } =
     useDraggable({ id: entry.id })
@@ -71,8 +76,19 @@ export default function EntryRow({
         className={`entry-text ${entry.done ? 'done' : ''}`}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        onBlur={() => {
-          if (text.trim() && text !== entry.content) onEdit(entry.id, text.trim())
+        onBlur={async () => {
+          const trimmed = text.trim()
+          // Blank text is never saved, so put the saved text back instead of leaving an empty box.
+          if (!trimmed) {
+            setText(entry.content)
+            return
+          }
+          if (trimmed === entry.content) {
+            setText(entry.content)
+            return
+          }
+          const ok = await onEdit(entry.id, trimmed)
+          if (!ok) setText(entry.content) // not saved: show what is actually saved
         }}
       />
       <button

@@ -1,27 +1,43 @@
 import type { Entry, TodoList } from './types'
 
+// Resets are calendar-based, in the device's local time zone:
+//   daily   -> due at 00:00 on the day after the last reset's local date
+//   weekly  -> due at 00:00, 7 days after that date
+//   custom  -> due at 00:00, N days after that date
+//   monthly -> due at 00:00 on the same day number next month; a shorter month uses its last day
+//              (Jan 31 -> Feb 28, or Feb 29 in a leap year)
+// A list that missed several cycles still resets once (the check is just "now >= due").
+
+function addDaysLocal(d: Date, n: number): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)
+}
+
+function addMonthClamped(d: Date): Date {
+  const year = d.getFullYear()
+  const nextMonth = d.getMonth() + 1 // 12 rolls over into January of the next year
+  const lastDayOfNext = new Date(year, nextMonth + 1, 0).getDate()
+  return new Date(year, nextMonth, Math.min(d.getDate(), lastDayOfNext))
+}
+
 export function computeNextResetDue(list: TodoList): Date | null {
   if (list.list_type !== 'recurring' || !list.last_reset_at || !list.reset_interval) {
     return null
   }
-  const base = new Date(list.last_reset_at)
-  const next = new Date(base)
+  const last = new Date(list.last_reset_at)
+  if (Number.isNaN(last.getTime())) return null
 
   switch (list.reset_interval) {
     case 'daily':
-      next.setDate(next.getDate() + 1)
-      break
+      return addDaysLocal(last, 1)
     case 'weekly':
-      next.setDate(next.getDate() + 7)
-      break
+      return addDaysLocal(last, 7)
     case 'monthly':
-      next.setMonth(next.getMonth() + 1)
-      break
+      return addMonthClamped(last)
     case 'custom':
-      next.setDate(next.getDate() + Math.max(1, list.reset_n_days ?? 1))
-      break
+      return addDaysLocal(last, Math.max(1, Math.floor(Number(list.reset_n_days)) || 1))
+    default:
+      return null
   }
-  return next
 }
 
 export function isResetDue(list: TodoList, now: Date = new Date()): boolean {

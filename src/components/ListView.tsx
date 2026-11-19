@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   DndContext,
   PointerSensor,
@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/core'
 import EntryRow from './EntryRow'
 import HistoryGrid from './HistoryGrid'
-import { flattenTree, computeDropZone, type DropZone } from '../entryTree'
+import { flattenTree, computeDropZone, getDescendantIds, type DropZone } from '../entryTree'
 import { describeInterval, computeNextResetDue } from '../resetEngine'
 import type { Entry, EntryCompletion, ListType, ResetInterval, TodoList } from '../types'
 
@@ -20,12 +20,12 @@ interface Props {
   completions: EntryCompletion[]
   onAddEntry: (content: string, parentId?: string | null) => void
   onToggleEntry: (id: string, done: boolean) => void
-  onEditEntry: (id: string, content: string) => void
+  onEditEntry: (id: string, content: string) => Promise<boolean>
   onDeleteEntry: (id: string) => void
   onToggleCollapsedEntry: (id: string, collapsed: boolean) => void
   onMoveEntry: (draggedId: string, overId: string, zone: DropZone) => void
-  onUpdateListSettings: (id: string, patch: Partial<TodoList>) => void
-  onManualReset: (list: TodoList) => void
+  onUpdateListSettings: (id: string, patch: Partial<TodoList>) => Promise<boolean>
+  onManualReset: (list: TodoList) => void | Promise<void>
 }
 
 export default function ListView({
@@ -46,6 +46,44 @@ export default function ListView({
   const [overState, setOverState] = useState<{ id: string; zone: DropZone } | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+
+  // The "every N days" box keeps what is typed; it is saved (whole number, at least 1) when the box loses
+  // focus or Enter is pressed, not on every keystroke, and clearing it does not snap to 1.
+  const savedNDays = String(list.reset_n_days ?? 1)
+  const [nDaysText, setNDaysText] = useState(savedNDays)
+  useEffect(() => {
+    setNDaysText(savedNDays)
+  }, [list.id, savedNDays])
+
+  const commitNDays = async () => {
+    const text = nDaysText.trim()
+    if (!/^\d+$/.test(text) || Number(text) < 1) {
+      setNDaysText(savedNDays) // empty or not a whole number: keep the saved value
+      return
+    }
+    const n = Number(text)
+    if (String(n) === savedNDays) {
+      setNDaysText(savedNDays)
+      return
+    }
+    const ok = await onUpdateListSettings(list.id, { reset_n_days: n })
+    if (!ok) setNDaysText(savedNDays)
+  }
+
+  const confirmReset = () => {
+    if (window.confirm('Reset now? This clears all the checks and records them in History.')) {
+      onManualReset(list)
+    }
+  }
+
+  const confirmDeleteEntry = (id: string) => {
+    const subItems = getDescendantIds(entries, id).size
+    const message =
+      subItems > 0
+        ? `Delete this entry and its ${subItems} sub-item${subItems === 1 ? '' : 's'}?`
+        : 'Delete this entry?'
+    if (window.confirm(message)) onDeleteEntry(id)
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -162,17 +200,17 @@ export default function ListView({
                     type="number"
                     min={1}
                     className="n-days-input"
-                    value={list.reset_n_days ?? 1}
-                    onChange={(e) =>
-                      onUpdateListSettings(list.id, {
-                        reset_n_days: Math.max(1, Number(e.target.value)),
-                      })
-                    }
+                    value={nDaysText}
+                    onChange={(e) => setNDaysText(e.target.value)}
+                    onBlur={commitNDays}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.currentTarget.blur()
+                    }}
                   />{' '}
                   days
                 </label>
               )}
-              <button className="ghost-btn" onClick={() => onManualReset(list)}>
+              <button className="ghost-btn" onClick={confirmReset}>
                 Reset now
               </button>
             </>
@@ -209,7 +247,7 @@ export default function ListView({
               entry={entry}
               onToggle={onToggleEntry}
               onEdit={onEditEntry}
-              onDelete={onDeleteEntry}
+              onDelete={confirmDeleteEntry}
               onToggleCollapsed={onToggleCollapsedEntry}
               onAddChild={(parentId) => {
                 const content = window.prompt('Sub-item text')
